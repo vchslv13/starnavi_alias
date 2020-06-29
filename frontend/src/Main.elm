@@ -7,11 +7,11 @@ import Html.Events exposing (onClick)
 import Url
 import Url.Builder exposing (absolute)
 
+import CreateGame
+import Message exposing (..)
 
-type Page = CreateGame | GameLobby | Unknown
-type alias Model = {page: Page, navKey: Nav.Key}
 
-type Msg = UrlChanged Url.Url | LinkClicked Browser.UrlRequest | CreateGameMsg
+type Model = CreateGame CreateGame.Model | GameLobby Nav.Key | Unknown Nav.Key
 
 
 main : Program () Model Msg
@@ -24,35 +24,32 @@ main = Browser.application
     , onUrlRequest = LinkClicked
     }
 
-pathToPage : String -> Page
-pathToPage path =
+pathToModel : String -> Nav.Key -> Model
+pathToModel path =
     case path of
-        "/" -> CreateGame
+        "/" -> CreateGame << CreateGame.Model
         "/start-game" -> GameLobby
         _ -> Unknown
 
 init : () -> Url.Url -> Nav.Key -> (Model, Cmd Msg)
-init _ url key = ({page = pathToPage url.path, navKey = key}, Cmd.none)
+init _ url key = ((pathToModel url.path) key, Cmd.none)
 
 
 view : Model -> Browser.Document Msg
 view model = 
-    case model.page of
-        CreateGame -> 
-            { title = "Alias"
-            , body = 
-                [ text "Game creation page"
-                , button [onClick CreateGameMsg] [text "Create game"]
-                ]
-            }    
-
-        GameLobby ->
+    case model of
+        CreateGame pageModel ->
+            let doc = CreateGame.view pageModel in
+                { title = doc.title
+                , body = List.map (Html.map CreateGameMsg) doc.body
+                }
+        GameLobby _ ->
             { title = "Alias"
             , body =
                 [ text "Magic! New game here, see that, ha? I don't see it too :("]
             }
 
-        Unknown ->
+        Unknown _ ->
             { title = "Alias"
             , body =
                 [ text "Ain't got no pages like that. Don't joke with me"]
@@ -60,12 +57,18 @@ view model =
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
-update msg model = 
+update msg model = let navKey = getNavKey model in
     case msg of
-        CreateGameMsg -> ({model| page = GameLobby}, Nav.pushUrl model.navKey "/start-game")
+        CreateGameMsg _ -> (GameLobby navKey, Nav.pushUrl navKey "/start-game")
         UrlChanged _ -> (model, Cmd.none)
         LinkClicked _ -> (model, Cmd.none)
 
+getNavKey: Model -> Nav.Key
+getNavKey model =
+    case model of
+        CreateGame pageModel -> pageModel.navKey
+        GameLobby navKey -> navKey
+        Unknown navKey -> navKey
 
 subscriptions : Model -> Sub Msg
 subscriptions _ = Sub.none
