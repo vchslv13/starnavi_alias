@@ -2,13 +2,16 @@ module CreateGame exposing (Model, Message, init, update, view)
 
 import Browser
 import Browser.Navigation as Nav
+import Json.Decode as JD
+import Json.Encode as JE
 import Html exposing (..)
+import Http
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 
 type Field a = Value a | ErrorInput String
 type alias Model = { navKey: Nav.Key, playersInTeam: Field Int}
-type Message = CreateGameClick | PlayersInTeam String
+type Message = CreateGameClick | PlayersInTeam String | CreatedGame (Result Http.Error String)
 
 
 init : Nav.Key -> Model
@@ -22,7 +25,22 @@ update msg model =
             case String.toInt value of
                 Just result -> ( { model | playersInTeam = Value result }, Cmd.none )
                 Nothing -> ( { model | playersInTeam = ErrorInput value }, Cmd.none )
-        CreateGameClick -> (model, Nav.pushUrl model.navKey "/start-game")
+        CreateGameClick ->
+            case model.playersInTeam of
+                Value value -> (model, createNewGame value)
+                ErrorInput _ -> (model, Cmd.none)  -- just skip sending any request as for now
+        CreatedGame result ->
+            case result of
+                Ok gameId -> (model, Nav.pushUrl model.navKey <| "/start-game/" ++ gameId)
+                Err _ -> (model, Cmd.none)
+
+
+createNewGame : Int -> Cmd Message
+createNewGame playersInTeam = Http.post
+    { url = "/api/games"
+    , body = Http.jsonBody <| JE.object [("players_in_team", JE.int playersInTeam)]
+    , expect = Http.expectJson CreatedGame (JD.field "id" JD.string)
+    }
 
 
 

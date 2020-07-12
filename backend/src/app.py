@@ -23,7 +23,7 @@ async def create_game(request: web.Request):
 @routes.get('/{path:.*}')
 async def serve_frontend(request):
     # quick hack for easier development
-    return web.FileResponse('~/projects/starnavi-alias/frontend/index.html')
+    return web.FileResponse('/home/slava/projects/starnavi-alias/frontend/index.html')
 
 
 app = web.Application()
