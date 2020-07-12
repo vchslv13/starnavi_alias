@@ -4,6 +4,7 @@ import Browser
 import Browser.Navigation as Nav
 import Html exposing (..)
 import Html.Events exposing (onClick)
+import Tuple exposing (..)
 import Url
 import Url.Builder exposing (absolute)
 
@@ -27,7 +28,7 @@ main = Browser.application
 pathToModel : String -> Nav.Key -> Model
 pathToModel path =
     case path of
-        "/" -> CreateGame << CreateGame.Model
+        "/" -> CreateGame << CreateGame.init
         "/start-game" -> GameLobby
         _ -> Unknown
 
@@ -56,12 +57,14 @@ view model =
             }
 
 
-update : Msg -> Model -> (Model, Cmd Msg)
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model = let navKey = getNavKey model in
-    case msg of
-        CreateGameMsg _ -> (GameLobby navKey, Nav.pushUrl navKey "/start-game")
-        UrlChanged _ -> (model, Cmd.none)
-        LinkClicked _ -> (model, Cmd.none)
+    case ( msg, model ) of
+        ( CreateGameMsg subMsg, CreateGame subModel ) ->
+            mapFirst CreateGame <| mapSecond (Cmd.map CreateGameMsg) <| CreateGame.update subMsg subModel
+        (UrlChanged url, _) -> (pathToModel url.path navKey, Cmd.none)
+        ( _, _ ) -> ( model, Cmd.none )
+
 
 getNavKey: Model -> Nav.Key
 getNavKey model =
@@ -69,6 +72,7 @@ getNavKey model =
         CreateGame pageModel -> pageModel.navKey
         GameLobby navKey -> navKey
         Unknown navKey -> navKey
+
 
 subscriptions : Model -> Sub Msg
 subscriptions _ = Sub.none
