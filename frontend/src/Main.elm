@@ -4,6 +4,7 @@ import Browser
 import Browser.Navigation as Nav
 import Html exposing (..)
 import Html.Events exposing (onClick)
+import Router
 import Tuple exposing (..)
 import Url
 import Url.Builder exposing (absolute)
@@ -12,7 +13,7 @@ import CreateGame
 import Message exposing (..)
 
 
-type Model = CreateGame CreateGame.Model | GameLobby Nav.Key | Unknown Nav.Key
+type Model = CreateGame CreateGame.Model | GameLobby String Nav.Key | Unknown Nav.Key
 
 
 main : Program () Model Msg
@@ -25,15 +26,15 @@ main = Browser.application
     , onUrlRequest = LinkClicked
     }
 
-pathToModel : String -> Nav.Key -> Model
-pathToModel path =
-    case path of
-        "/" -> CreateGame << CreateGame.init
-        "/start-game" -> GameLobby
-        _ -> Unknown
+urlToModel : Url.Url -> Nav.Key -> Model
+urlToModel url =
+    case Router.getRoute url of
+        Router.CreateGame -> CreateGame << CreateGame.init
+        Router.StartGame gameId -> GameLobby gameId
+        Router.Unknown -> Unknown
 
 init : () -> Url.Url -> Nav.Key -> (Model, Cmd Msg)
-init _ url key = ((pathToModel url.path) key, Cmd.none)
+init _ url key = (urlToModel url key, Cmd.none)
 
 
 view : Model -> Browser.Document Msg
@@ -44,10 +45,10 @@ view model =
                 { title = doc.title
                 , body = List.map (Html.map CreateGameMsg) doc.body
                 }
-        GameLobby _ ->
+        GameLobby gameId _ ->
             { title = "Alias"
             , body =
-                [ text "Magic! New game here, see that, ha? I don't see it too :("]
+                [ text <| "Magic! New game " ++ gameId ++ " here, see that, ha? I don't see it too :("]
             }
 
         Unknown _ ->
@@ -62,7 +63,7 @@ update msg model = let navKey = getNavKey model in
     case ( msg, model ) of
         ( CreateGameMsg subMsg, CreateGame subModel ) ->
             mapFirst CreateGame <| mapSecond (Cmd.map CreateGameMsg) <| CreateGame.update subMsg subModel
-        (UrlChanged url, _) -> (pathToModel url.path navKey, Cmd.none)
+        (UrlChanged url, _) -> (urlToModel url navKey, Cmd.none)
         ( _, _ ) -> ( model, Cmd.none )
 
 
@@ -70,7 +71,7 @@ getNavKey: Model -> Nav.Key
 getNavKey model =
     case model of
         CreateGame pageModel -> pageModel.navKey
-        GameLobby navKey -> navKey
+        GameLobby _ navKey -> navKey
         Unknown navKey -> navKey
 
 
